@@ -1,5 +1,7 @@
 import os
+import time
 import neat
+import pickle
 import pygame
 import numpy as np
 from keras.utils import to_categorical
@@ -25,6 +27,7 @@ class food:
             self.y = default_y
         else:
             self.y = np.random.randint(0,25)
+
         self.width = 20
         self.height = 20
         self.eaten = False
@@ -144,7 +147,9 @@ def get_state(snake, food):
                 state[i] = 0
         return tuple(state)
 
+FIRST_ITERATION = True
 def eval_genomes(genomes, config):
+    global FIRST_ITERATION
     snakes = [] # A list to hold all the Snake objects
     ge = [] # A list to hold all the genomes
     nets = [] # A list to hold all the networks corresponding their genomes
@@ -157,6 +162,12 @@ def eval_genomes(genomes, config):
 
         nets.append(net)
         snakes.append(snake_)
+
+        if(os.path.exists("genome.pickle") and FIRST_ITERATION):
+           genome = pickle.load(open("genome.pickle", "rb"))
+
+        FIRST_ITERATION = False
+
         ge.append(genome)
 
     # move the snakes inside the array first:
@@ -165,6 +176,7 @@ def eval_genomes(genomes, config):
 
     while(run):
         # Problem : some individual are moving back and forth
+        time.sleep(0.01)
         pygame.time.delay(0)
         init_screen(win)
         food_.spawn(win)
@@ -180,14 +192,16 @@ def eval_genomes(genomes, config):
             if (food_.x == snake_.body[0][0] and food_.y == snake_.body[0][1]):
                 food_ = food()  # if food is eaten, get new food
                 snake_.body.append(last_tail)
-                ge[snakes.index(snake_)].fitness += 5
+
+                print("Food eaten")
+                ge[snakes.index(snake_)].fitness += 2
                 snake_.move_count = 0
 
             if((snake_.move_count > 100 and food_.eaten == False) or snake_.check_collide()):
+                ge[snakes.index(snake_)].fitness -= 2
                 if(snake_.move_count > 100 and food_.eaten == False):
-                    ge[snakes.index(snake_)].fitness = -10
-                else:
-                    ge[snakes.index(snake_)].fitness -= -10
+                    ge[snakes.index(snake_)].fitness = -3
+              
                 ge.pop(snakes.index(snake_))
                 nets.pop(snakes.index(snake_))
                 snakes.pop(snakes.index(snake_))
@@ -211,7 +225,8 @@ def run(config_file):
     p.add_reporter(neat.StdOutReporter(True))
     p.add_reporter(neat.StatisticsReporter())
 
-    winner = p.run(eval_genomes, n = 100)
+    winner = p.run(eval_genomes, n = 1000)
+    pickle.dump(winner, open("genome.pickle", "wb"))
 
     print("Best genome : {}\n".format(winner))
 
